@@ -1,0 +1,99 @@
+---
+title: "Course Project"
+---
+The goal of this report is explain how to build model for prediction of manner in which people do exercise based on their daily activity.
+
+There are 159 predictors (daily activity data) and five types of exercise which correspond to following classification labels: 'A', 'B', 'C', 'D', 'E'. 
+
+```{r echo = F, cache = F}
+load(file = 'secret.RData')
+
+```
+
+For building model I chose only predictors without missing values. There are 53 numerical and 2 factor variables.
+```{r eval = F}
+#Download Data
+X <- read.csv('D:/Coursera/Data Science/Practical Machine Learning/Course Project/pml-training.csv')
+
+#Extract non NA-s data only
+XX <- X[,c(2,6, 7:11, 37:49, 60:68, 84:86, 102, 113:124,140, 151:160)]
+```
+
+There two machine learning algorithms I decided to test for building prediction model. It's SVM with linear kernel and random forest with cross validation method for resampling. 
+
+For estimating out of sample error I used K-fold cross validation.
+
+```{r eval = F}
+folds <- createFolds(y = XX$classe, k = 3, list = T, returnTrain = F)
+
+#C.V step one for svm model:
+train1 <- c(folds[[1]], folds[[2]])
+test1 <- folds[[3]]
+model_svm1 <- svm(classe ~., data = XX[train1,], kernel = 'linear')
+pred_svm1 <- predict(model_svm1, XX[test1, ])
+OOS_error_svm1 <- 1 - sum(pred_svm1 == XX$classe[test1]) / length(XX$classe[test1])
+
+#C.V step two for svm model:
+train2 <- c(folds[[1]], folds[[3]])
+test2 <- folds[[2]]
+model_svm2 <- svm(classe ~., data = XX[train2,], kernel = 'linear')
+pred_svm2 <- predict(model_svm2, XX[test2, ])
+OOS_error_svm2 <- 1 - sum(pred_svm2 == XX$classe[test2]) / length(XX$classe[test2])
+
+#C.V step three for svm model:
+train3 <- c(folds[[2]], folds[[3]])
+test3 <- folds[[1]]
+model_svm3 <- svm(classe ~., data = XX[train3,], kernel = 'linear')
+pred_svm3 <- predict(model_svm3, XX[test3, ])
+OOS_error_svm3 <- sum(pred_svm3 == XX$classe[test3]) / length(XX$classe[test3])
+```
+
+Given out of sample error for each fold I calculalted mean cross validation error rate for svm model:
+```{r echo = T}
+mean(OOS_error_svm1, OOS_error_svm2, OOS_error_svm3)
+```
+
+Let's make the same procedure for RF model.
+```{r eval = F}
+
+#C.V step one for rf model:
+model_rf1 <- train(classe ~ ., 
+                   method = 'rf', 
+                   data = XX[train1, ], 
+                   trControl = trainControl(method = 'cv', number = 2))
+pred_rf1 <- predict(model_rf1, XX[test1, ])
+OOS_error_rf1 <- 1 - sum(pred_rf1 == XX$classe[test1]) / length(XX$classe[test1])
+
+#C.V step two for rf model:
+model_rf2 <- train(classe ~ ., 
+                   method = 'rf', 
+                   data = XX[train2, ], 
+                   trControl = trainControl(method = 'cv', number = 2))
+pred_rf2 <- predict(model_rf2, XX[test2, ])
+OOS_error_rf2 <- 1 - sum(pred_rf2 == XX$classe[test2]) / length(XX$classe[test2])
+
+#C.V step three for rf model:
+model_rf3 <- train(classe ~ ., 
+                   method = 'rf', 
+                   data = XX[train3, ], 
+                   trControl = trainControl(method = 'cv', number = 2))
+pred_rf3 <- predict(model_rf3, XX[test3, ])
+OOS_error_rf3 <- 1 - sum(pred_rf3 == XX$classe[test3]) / length(XX$classe[test3])
+```
+
+Cross validation error for RF model:
+```{r echo = T}
+mean(OOS_error_rf1, OOS_error_rf2, OOS_error_rf3)
+```
+
+Prediction accuracy for RF model is much higher than accuracy for SVM model. So, model based on random forest approach is more appropriate for predicting values in this case. Considering absolute value of cross validation error and computational costs it's not necessarily to retrain RF model. Thus, I can use one of trained model for cross validation and get 100% result for predicting classes in test set:
+
+```{r eval = F}
+Y <- read.csv('D:/Coursera/Data Science/Practical Machine Learning/Course Project/pml-testing.csv')
+YY <- Y[,c(2,6, 7:11, 37:49, 60:68, 84:86, 102, 113:124,140, 151:160)]
+```
+```{r include = F}
+pred_res <- predict(model_rf1, YY)
+```
+```{r echo = T, cache = T}
+predict(model_rf1, YY)
